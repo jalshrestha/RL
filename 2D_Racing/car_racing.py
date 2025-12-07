@@ -406,28 +406,107 @@ def train_optimized(total_timesteps=None, n_envs=None, use_reward_shaping=True,
     return model
 
 
-def test_agent(model_path=None, num_episodes=5, deterministic=True):
-    """Test the trained agent"""
+def get_available_checkpoints():
+    """List all available checkpoints"""
+    checkpoints = []
+    
+    if os.path.exists(CONFIG["checkpoint_dir"]):
+        cp_files = sorted([
+            f for f in os.listdir(CONFIG["checkpoint_dir"]) 
+            if f.endswith('.zip') and 'carracing_ppo' in f
+        ])
+        
+        for cp in cp_files:
+            cp_path = f"{CONFIG['checkpoint_dir']}/{cp[:-4]}"
+            # Extract timestep from filename (e.g., carracing_ppo_10000_steps -> 10000)
+            try:
+                timestep = cp.split('_')[-2] if '_steps' in cp else 'unknown'
+                checkpoints.append((f"{timestep} steps", cp_path))
+            except:
+                checkpoints.append((cp, cp_path))
+    
+    return checkpoints
+
+
+def test_best_model(num_episodes=15, deterministic=True):
+    """Test the best model from evaluation"""
     print("\n" + "="*60)
-    print("Testing Agent")
+    print("Testing Best Model")
     print("="*60)
     
+    best_path = f"{CONFIG['model_dir']}/best_model"
+    
+    if not os.path.exists(f"{best_path}.zip"):
+        print("Best model not found!")
+        print("The best model is saved during training with EvalCallback.")
+        return
+    
+    print(f"Loading: {best_path}")
+    model = PPO.load(best_path)
+    
+    _run_test(model, num_episodes, deterministic, "Best Model")
+
+
+def test_checkpoint(num_episodes=15, deterministic=True):
+    """Test a checkpoint selected from available checkpoints"""
+    print("\n" + "="*60)
+    print("Testing Checkpoint")
+    print("="*60)
+    
+    checkpoints = get_available_checkpoints()
+    
+    if not checkpoints:
+        print("No checkpoints found!")
+        print(f"Checkpoints are saved in: {CONFIG['checkpoint_dir']}")
+        return
+    
+    print("\nAvailable checkpoints:")
+    for i, (name, path) in enumerate(checkpoints, 1):
+        print(f"  {i}. {name}")
+    
+    try:
+        choice = input(f"\nSelect checkpoint (1-{len(checkpoints)}) [default: 1]: ").strip()
+        if not choice:
+            choice = "1"
+        idx = int(choice) - 1
+        if 0 <= idx < len(checkpoints):
+            model_path = checkpoints[idx][1]
+            checkpoint_name = checkpoints[idx][0]
+            print(f"\nSelected: {checkpoint_name}")
+        else:
+            print("Invalid choice, using first checkpoint")
+            model_path = checkpoints[0][1]
+            checkpoint_name = checkpoints[0][0]
+    except (ValueError, KeyboardInterrupt):
+        print("\nCancelled")
+        return
+    
+    print(f"Loading: {model_path}")
+    model = PPO.load(model_path)
+    
+    _run_test(model, num_episodes, deterministic, f"Checkpoint ({checkpoint_name})")
+
+
+def test_agent(model_path=None, num_episodes=5, deterministic=True):
+    """Test the trained agent (generic function, can specify model path)"""
     if model_path is None:
+    
         best_path = f"{CONFIG['model_dir']}/best_model"
-        final_path = f"{CONFIG['model_dir']}/carracing_ppo_final"
-        
         if os.path.exists(f"{best_path}.zip"):
             model_path = best_path
-            print("Loading best model")
-        elif os.path.exists(f"{final_path}.zip"):
-            model_path = final_path
-            print("Loading final model")
         else:
-            print("No model found!")
+            print("No model path specified and no best model found!")
             return
     
-    print(f"  Path: {model_path}")
+    print(f"\nLoading: {model_path}")
     model = PPO.load(model_path)
+    
+    _run_test(model, num_episodes, deterministic, "Agent")
+
+
+def _run_test(model, num_episodes, deterministic, model_name):
+    """Internal function to run the actual test"""
+    print(f"\nTesting {model_name} for {num_episodes} episodes...")
     
     def make_test_env():
         return gym.make('CarRacing-v3', render_mode='human', continuous=True,
@@ -540,41 +619,37 @@ def main():
     """Menu"""
     print("\n" + "="*60)
     print("CarRacing PPO Trainer")
-    print("="*60)
-    print("\nSetup:")
-    print("  - 8 parallel envs")
-    print("  - 4-frame stacking")
-    print("  - Reward shaping")
-    print("  - Auto checkpointing")
-    
-    print("\n" + "="*60)
+    print("="*60)    
     print("Options:")
     print("="*60)
     print("1. Train (500k steps)")
-    print("2. Test agent")
-    print("3. Quick demo (50k)")
-    print("4. Watch random agent")
-    print("5. Train then test")
-    print("6. Benchmark speed")
-    print("7. Continue from checkpoint")
+    print("2. Test best model")
+    print("3. Test checkpoint (select from list)")
+    print("4. Quick demo (50k)")
+    print("5. Watch random agent")
+    print("6. Train then test")
+    print("7. Benchmark speed")
+    print("8. Continue from checkpoint")
     
-    choice = input("\nChoice (1-7): ").strip()
+    choice = input("\nChoice (1-8): ").strip()
     
     if choice == "1":
         train_optimized()
     elif choice == "2":
-        test_agent()
+        test_best_model(num_episodes=15)
     elif choice == "3":
-        quick_demo()
+        test_checkpoint(num_episodes=15)
     elif choice == "4":
-        watch_random_agent()
+        quick_demo()
     elif choice == "5":
+        watch_random_agent()
+    elif choice == "6":
         train_optimized()
         input("\nDone! Press Enter to test...")
-        test_agent()
-    elif choice == "6":
-        benchmark_speed()
+        test_best_model(num_episodes=15)
     elif choice == "7":
+        benchmark_speed()
+    elif choice == "8":
         checkpoints = sorted([
             f for f in os.listdir(CONFIG["checkpoint_dir"]) 
             if f.endswith('.zip')

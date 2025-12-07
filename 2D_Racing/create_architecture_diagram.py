@@ -52,11 +52,11 @@ for x, y, w, h, label, color in boxes:
 
 # Draw arrows
 arrows = [
-    (3.0, 3.0, 3.5, 3.0),  # Env to RewardShaping
-    (6.0, 3.0, 6.5, 3.0),  # RewardShaping to Monitor
-    (8.5, 3.0, 9.0, 3.0),  # Monitor to VecEnv
-    (11.5, 3.0, 12.0, 3.0),  # VecEnv to FrameStack
-    (14.0, 3.0, 14.5, 3.0),  # FrameStack to Policy
+    (3.0, 3.0, 3.5, 3.0),  
+    (6.0, 3.0, 6.5, 3.0),  
+    (8.5, 3.0, 9.0, 3.0),  
+    (11.5, 3.0, 12.0, 3.0),  
+    (14.0, 3.0, 14.5, 3.0),  
 ]
 
 for x1, y1, x2, y2 in arrows:
@@ -89,5 +89,5 @@ plt.tight_layout()
 plt.savefig('Image/System_Architecture.png', dpi=300, bbox_inches='tight')
 plt.close()
 
-print("✅ Architecture diagram saved to Image/System_Architecture.png")
+print(" Architecture diagram saved")
 
